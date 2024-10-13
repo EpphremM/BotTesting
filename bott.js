@@ -1,10 +1,16 @@
 import { Telegraf, Markup } from 'telegraf';
+import express from 'express';
 
-const TOKEN = "7578510001:AAHwnlq-eXvcMzGZdNvzM-BgeCWLjL33Bv4";
-const web_link='http://t.me/telbingo_bot/WaseBingo';
-
+const TOKEN = "7578510001:AAHwnlq-eXvcMzGZdNvzM-BgeCWLjL33Bv4"  // Use environment variables for security
+const web_link = 'http://t.me/telbingo_bot/WaseBingo';  // External link for playing the game
 const bot = new Telegraf(TOKEN);
-
+const app = express();
+app.use(express.json());
+bot.telegram.setWebhook(`https://your-vercel-app.vercel.app/api/webhook`);
+app.post('/api/webhook', (req, res) => {
+    bot.handleUpdate(req.body);
+    res.status(200).send('ok');
+});
 process.on('uncaughtException', (err) => {
     console.error('Uncaught Exception:', err);
 });
@@ -18,8 +24,9 @@ bot.catch((err, ctx) => {
     ctx.reply('Oops! Something went wrong. Please try again later.');
 });
 
+// Start command handler
 bot.start((ctx) => {
-    const options = {
+    ctx.reply('Choose an option:', {
         reply_markup: {
             inline_keyboard: [
                 [
@@ -39,39 +46,25 @@ bot.start((ctx) => {
                 ],
             ],
         },
-    };
-    ctx.reply('Choose an option:', options);
-});
-
-bot.command('play', async (ctx) => {
-    await playGame(ctx);
-});
-
-bot.on('contact', async (ctx) => {
-    const contact = ctx.message.contact;
-    await ctx.reply('You are registered successfully! 🎮 Click the button below to start the game.', {
-        reply_markup: {
-            inline_keyboard: [
-                [{ text: '🎮 Play Game', callback_data: 'play' }],
-            ],
-        },
     });
 });
+
+// Handle game logic for playing
 const playGame = async (ctx) => {
     try {
         await ctx.reply('🎮 The game is starting! Select an amount:', {
             reply_markup: {
                 inline_keyboard: [
                     [
-                      Markup.button.url('🎮 Play 10',web_link),
-                        Markup.button.url('🎮 Play 20',web_link),
+                        Markup.button.callback('🎮 Play 10', 'play10'),
+                        Markup.button.callback('🎮 Play 20', 'play20'),
                     ],
                     [
-                        Markup.button.url('🎮 Play 50',web_link),
-                        Markup.button.url('🎮 Play 100',web_link),
+                        Markup.button.callback('🎮 Play 50', 'play50'),
+                        Markup.button.callback('🎮 Play 100', 'play100'),
                     ],
                     [
-                        Markup.button.url('🎮 Play Demo',web_link),
+                        Markup.button.callback('🎮 Play Demo', 'play_demo'),
                     ],
                 ],
             },
@@ -82,9 +75,10 @@ const playGame = async (ctx) => {
     }
 };
 
+// Handle different callback queries
 bot.on('callback_query', async (ctx) => {
     const action = ctx.callbackQuery.data;
-    const currentId=ctx.from.id;
+    const currentId = ctx.from.id;
 
     try {
         switch (action) {
@@ -132,27 +126,24 @@ bot.on('callback_query', async (ctx) => {
             case 'rules':
                 await ctx.reply('📜 You clicked Game Rules!');
                 break;
-                case 'invite':
-    const referralLink = `https://t.me/telbingo_bot?start=${currentId}`;
-    await ctx.reply(`🎉 Invite your friends by clicking the button below! ${referralLink}`, {
-        reply_markup: {
-            inline_keyboard: [
-                [
-                  
-                    Markup.button.switchToChat('Invite your friends', referralLink),
-                ]
-            ]
-        }
-    });
-    break;
-                
-            case 'cancel':
-                await ctx.reply('❌ Registration canceled.',{
-                    reply_markup:{
-                        remove_keyboard:true
-                    }
+            case 'invite':
+                const referralLink = `https://t.me/telbingo_bot?start=${currentId}`;
+                await ctx.reply(`🎉 Invite your friends by clicking the button below! ${referralLink}`, {
+                    reply_markup: {
+                        inline_keyboard: [
+                            [
+                                Markup.button.switchToChat('Invite your friends', referralLink),
+                            ],
+                        ],
+                    },
                 });
-                
+                break;
+            case 'cancel':
+                await ctx.reply('❌ Registration canceled.', {
+                    reply_markup: {
+                        remove_keyboard: true,
+                    },
+                });
                 break;
             default:
                 await ctx.reply('Unknown option selected.');
@@ -166,19 +157,5 @@ bot.on('callback_query', async (ctx) => {
     }
 });
 
-bot.launch()
-    .then(() => {
-        console.log('Bot is running...');
-    })
-    .catch((error) => {
-        console.error('Failed to launch the bot:', error);
-    });
-
-process.once('SIGINT', () => {
-    bot.stop('SIGINT');
-    console.log('Bot gracefully stopped');
-});
-process.once('SIGTERM', () => {
-    bot.stop('SIGTERM');
-    console.log('Bot gracefully stopped');
-});
+// Export app for Vercel deployment
+module.exports = app;
