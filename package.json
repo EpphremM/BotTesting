@@ -1,4 +1,5 @@
 {
+  "type": "module" ,
   "main": "bott.js",
   "dependencies": {
     "express": "^4.21.1",
